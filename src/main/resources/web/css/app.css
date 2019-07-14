@@ -1,0 +1,31 @@
+body {
+    padding-top: 50px;
+}
+
+#main {
+    margin-top: 40px;
+}
+
+#text-input {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.flow {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.posts > div {
+    border-bottom: solid lightgray 1px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.posts > div:first-of-type {
+    border-top: solid lightgray 1px;
+}
+
+.posts .time {
+    font-style: italic;
+}
