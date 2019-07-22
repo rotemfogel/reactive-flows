@@ -16,10 +16,11 @@
 
 package de.heikoseeberger
 
-import akka.actor.ActorContext
-import java.time.{ Duration => JavaDuration }
-import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS }
-import scala.reflect.{ classTag, ClassTag }
+import java.time.{Duration => JavaDuration}
+
+import scala.concurrent.duration.{FiniteDuration, NANOSECONDS}
+import scala.language.implicitConversions
+import scala.reflect.{ClassTag, classTag}
 
 package object reactiveflows {
 

@@ -22,44 +22,71 @@ Reactive Flows is a demo project showing a Reactive web app built with:
 - Important: Reactive Flows uses [ConstructR](https://github.com/hseeberger/constructr) for initializing the cluster; make sure etcd is started and available
 - Important: Reactive Flows uses the Cassandra plugin for Akka Persistence; make sure Cassandra is started and available under the configured contact point
 
-### Run in sbt
+### Run 
 
-First start Cassandra and etcd:
+#### Running a single node etcd
+Use the host IP address when configuring etcd:
+````
+export NODE1=192.168.1.21
+````
+
+Configure a Docker volume to store etcd data:
+````
+docker volume create --name etcd-data
+export DATA_DIR="etcd-data"
+````
+Run the latest version of etcd:
+
+````
+REGISTRY=quay.io/coreos/etcd
+
+docker run \
+  -d \
+  -p 2379:2379 \
+  -p 2380:2380 \
+  --volume=${DATA_DIR}:/etcd-data \
+  --name etcd ${REGISTRY}:latest \
+  /usr/local/bin/etcd \
+  --data-dir=/etcd-data --name node1 \
+  --initial-advertise-peer-urls http://${NODE1}:2380 --listen-peer-urls http://0.0.0.0:2380 \
+  --advertise-client-urls http://${NODE1}:2379 --listen-client-urls http://0.0.0.0:2379 \
+  --initial-cluster node1=http://${NODE1}:2380
+````
+
+#### Run scylladb
+````
+docker run -d --name scylla -p 10000:10000 -p 7000:7000 -p 7001:7001 -p 9042:9042 -p 9160:9160 -p 9180:9180 scylladb/scylla:latest
+````
+
+## REST API ##
 
 ```
-docker-compose rm -f -s -v
-docker-compose up -d etcd cassandra
+http://localhost:8000/flows
+http://localhost:8000/flows?label=Akka
+http://localhost:8000/flows?label=Scala
+http://localhost:8000/flows/akka/posts?text='Akka rocks!'
+http://localhost:8000/flows/akka/posts?text='Akka really rocks!'
+http://localhost:8000/flows/scala/posts?text='Scala rocks, too!'
+http://localhost:8000/flows/scala/posts?text='Scala really rocks, too!'
+http://localhost:8000/flows/akka/posts?count==99
 ```
 
-Then start a first instance in sbt:
+### Examples ###
+```
+curl -XPOST -H "Content-Type: application/json" \
+    http://localhost:8000/flows -d '{"label":"akka"}'
+    
+curl -XPOST -H "Content-Type: application/json" \
+    http://localhost:8000/flows/akka/posts -d '{"text": "akka is cool!"}'
+
+while (true); 
+do 
+    curl -XPOST -H "Content-Type: application/json" \
+        http://localhost:8000/flows/akka/posts -d '{"text": "akka is cool!"}'; 
+    sleep 2; 
+done
 
 ```
-reStart --- -Dcassandra-journal.contact-points.0=127.0.0.1:9042 -Dconstructr.coordination.host=127.0.0.1 -Dakka.remote.netty.tcp.hostname=127.0.0.1 -Dakka.remote.netty.tcp.port=2550
-```
-
-To start another instance in sbt, provide additional configuration settings:
-
-```
-reStart --- -Dcassandra-journal.contact-points.0=127.0.0.1:9042 -Dconstructr.coordination.host=127.0.0.1 -Dakka.remote.netty.tcp.hostname=127.0.0.1 -Dakka.remote.netty.tcp.port=2551 -Dreactive-flows.api.port=8001
-```
-
-## REST API Examples ##
-
-```
-http localhost:8000/flows
-http localhost:8000/flows label=Akka
-http localhost:8000/flows label=Scala
-http localhost:8000/flows/akka/posts text='Akka rocks!'
-http localhost:8000/flows/akka/posts text='Akka really rocks!'
-http localhost:8000/flows/scala/posts text='Scala rocks, too!'
-http localhost:8000/flows/scala/posts text='Scala really rocks, too!'
-http localhost:8000/flows/akka/posts count==99
-```
-
-## Contribution policy ##
-
-Contributions via GitHub pull requests are gladly accepted from their original author. Along with any pull requests, please state that the contribution is your original work and that you license the work to the project under the project's open source license. Whether or not you state this explicitly, by submitting any copyrighted material via pull request, email, or other means you agree to license the material under the project's open source license and warrant that you have the legal authority to do so.
-
 ## License ##
 
 This code is open source software licensed under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0).

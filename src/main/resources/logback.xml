@@ -5,12 +5,13 @@
         </encoder>
     </appender>
 
-<!--    <logger name="de.heikoseeberger.reactiveflows" level="DEBUG"/>-->
-<!--    <logger name="Remoting" level="INFO"/>-->
-<!--    <logger name="akka.remote.EndpointWriter" level="ERROR"/>-->
-<!--    <logger name="akka.cluster.ClusterHeartbeatSender" level="ERROR"/>-->
+    <!--    <logger name="de.heikoseeberger.reactiveflows" level="INFO"/>-->
+    <!--    <logger name="Remoting" level="INFO"/>-->
+    <logger name="akka.io" level="DEBUG"/>
+    <!--    <logger name="akka.remote.EndpointWriter" level="ERROR"/>-->
+    <!--    <logger name="akka.cluster.ClusterHeartbeatSender" level="ERROR"/>-->
 
-    <root level="DEBUG">
+    <root level="ERROR">
         <appender-ref ref="STDOUT"/>
     </root>
 
