@@ -29,11 +29,11 @@ package object reactiveflows {
   type Seq[+A]         = scala.collection.immutable.Seq[A]
   type IndexedSeq[+A]  = scala.collection.immutable.IndexedSeq[A]
 
-  final case class InvalidCommand(cause: String)
+  def className[A: ClassTag]: String =
+    classTag[A].runtimeClass.getName
 
   implicit def javaDurationToScala(duration: JavaDuration): FiniteDuration =
     FiniteDuration(duration.toNanos, NANOSECONDS)
 
-  def className[A: ClassTag]: String =
-    classTag[A].runtimeClass.getName
+  final case class InvalidCommand(cause: String)
 }

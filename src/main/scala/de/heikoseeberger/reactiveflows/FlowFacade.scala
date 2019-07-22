@@ -16,51 +16,26 @@
 
 package de.heikoseeberger.reactiveflows
 
-import akka.actor.{ Actor, ActorContext, ActorLogging, ActorRef, Props }
-import akka.cluster.Cluster
-import akka.cluster.ddata.Replicator.{ Changed, Subscribe }
-import akka.cluster.ddata.{ Key, LWWMap, LWWMapKey, Replicator }
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+import java.io.{Serializable => JavaSerializable}
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets.UTF_8
-import java.io.{ Serializable => JavaSerializable }
+
+import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Props}
+import akka.cluster.Cluster
+import akka.cluster.ddata.Replicator.{Changed, Subscribe}
+import akka.cluster.ddata.{Key, LWWMap, LWWMapKey, Replicator}
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+
 import scala.concurrent.duration.FiniteDuration
 
 object FlowFacade {
 
   type CreateFlow = (ActorContext, String, ActorRef, FiniteDuration) => ActorRef
-
-  sealed trait Serializable extends JavaSerializable
-  sealed trait Event
-
-  // == Message protocol – start ==
-
-  final case object GetFlows                   extends Serializable
-  final case class Flows(flows: Set[FlowDesc]) extends Serializable
-
-  final case class AddFlow(label: String)     extends Serializable
-  final case class FlowAdded(desc: FlowDesc)  extends Serializable with Event
-  final case class FlowExists(desc: FlowDesc) extends Serializable
-
-  final case class RemoveFlow(name: String)  extends Serializable
-  final case class FlowRemoved(name: String) extends Serializable with Event
-  final case class FlowUnknown(name: String) extends Serializable
-
-  final case class GetPosts(name: String, from: Long, count: Int) extends Serializable
-  // Response by Flow
-
-  final case class AddPost(name: String, text: String) extends Serializable
-  // Response by Flow
-
-  final case class FlowDesc(name: String, label: String) extends Serializable // needs to be Serializable because of ddata
-
-  // == Message protocol – end ==
-
   final val Name = "flow-facade"
-
   val flows: Key[LWWMap[String, FlowDesc]] =
     LWWMapKey("flows")
 
+  // == Message protocol – start ==
   private val updateFlowData =
     Replicator.Update(flows, LWWMap.empty[String, FlowDesc], Replicator.WriteLocal) _
 
@@ -79,6 +54,38 @@ object FlowFacade {
     context.actorOf(Flow(mediator, flowPassivationTimeout), name)
 
   private def labelToName(label: String) = URLEncoder.encode(label.toLowerCase, UTF_8.name)
+
+  sealed trait Serializable extends JavaSerializable
+
+  sealed trait Event
+
+  final case class Flows(flows: Set[FlowDesc]) extends Serializable
+
+  final case class AddFlow(label: String) extends Serializable
+
+  final case class FlowAdded(desc: FlowDesc) extends Serializable with Event
+
+  // Response by Flow
+
+  final case class FlowExists(desc: FlowDesc) extends Serializable
+
+  // Response by Flow
+
+  final case class RemoveFlow(name: String) extends Serializable
+
+  // == Message protocol – end ==
+
+  final case class FlowRemoved(name: String) extends Serializable with Event
+
+  final case class FlowUnknown(name: String) extends Serializable
+
+  final case class GetPosts(name: String, from: Long, count: Int) extends Serializable
+
+  final case class AddPost(name: String, text: String) extends Serializable
+
+  final case class FlowDesc(name: String, label: String) extends Serializable // needs to be Serializable because of ddata
+
+  final case object GetFlows extends Serializable
 }
 
 final class FlowFacade(mediator: ActorRef,
@@ -89,13 +96,13 @@ final class FlowFacade(mediator: ActorRef,
     with ActorLogging {
   import FlowFacade._
 
-  private implicit val cluster = Cluster(context.system)
+  private implicit val cluster: Cluster = Cluster(context.system)
 
   private var flowsByName = Map.empty[String, FlowDesc]
 
   replicator ! Subscribe(flows, self)
 
-  override def receive = {
+  override def receive: PartialFunction[Any, Unit] = {
     case GetFlows => sender() ! Flows(flowsByName.valuesIterator.to[Set])
 
     case AddFlow("")    => sender() ! InvalidCommand("label empty")
@@ -113,10 +120,7 @@ final class FlowFacade(mediator: ActorRef,
     case c @ Changed(`flows`) => flowsByName = c.get(flows).entries
   }
 
-  protected def forwardToFlow(name: String, command: Flow.Command): Unit =
-    flowShardRegion.forward(Flow.CommandEnvelope(name, command))
-
-  private def handleAddFlow(label: String) =
+  private def handleAddFlow(label: String): Unit =
     forUnknownFlow(label) { name =>
       val desc = FlowDesc(name, label)
       flowsByName += name -> desc
@@ -127,7 +131,12 @@ final class FlowFacade(mediator: ActorRef,
       sender() ! flowAdded
     }
 
-  private def handleRemoveFlow(name: String) =
+  private def forUnknownFlow(label: String)(f: String => Unit): Unit = {
+    val name = labelToName(label)
+    flowsByName.get(name).fold(f(name))(desc => sender() ! FlowExists(desc))
+  }
+
+  private def handleRemoveFlow(name: String): Unit =
     forExistingFlow(name) {
       flowsByName -= name
       replicator ! updateFlowData(_ - name)
@@ -137,21 +146,19 @@ final class FlowFacade(mediator: ActorRef,
       sender() ! flowRemoved
     }
 
-  private def handleGetPosts(name: String, from: Long, count: Int) =
+  private def forExistingFlow(name: String)(action: => Unit): Unit =
+    if (flowsByName.contains(name)) action else sender() ! FlowUnknown(name)
+
+  private def handleGetPosts(name: String, from: Long, count: Int): Unit =
     forExistingFlow(name) {
       forwardToFlow(name, Flow.GetPosts(from, count))
     }
 
-  private def handleAddPost(name: String, text: String) =
+  protected def forwardToFlow(name: String, command: Flow.Command): Unit =
+    flowShardRegion.forward(Flow.CommandEnvelope(name, command))
+
+  private def handleAddPost(name: String, text: String): Unit =
     forExistingFlow(name) {
       forwardToFlow(name, Flow.AddPost(text))
     }
-
-  private def forUnknownFlow(label: String)(f: String => Unit) = {
-    val name = labelToName(label)
-    flowsByName.get(name).fold(f(name))(desc => sender() ! FlowExists(desc))
-  }
-
-  private def forExistingFlow(name: String)(action: => Unit) =
-    if (flowsByName.contains(name)) action else sender() ! FlowUnknown(name)
 }

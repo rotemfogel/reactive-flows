@@ -18,7 +18,7 @@ package de.heikoseeberger.reactiveflows
 
 import java.net.InetSocketAddress
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Status }
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status}
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
@@ -26,10 +26,10 @@ import akka.http.scaladsl.marshalling.sse.EventStreamMarshalling
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.model.sse.ServerSentEvent
-import akka.http.scaladsl.server.{ Directives, Route }
-import akka.pattern.{ ask, pipe }
+import akka.http.scaladsl.server.{Directives, Route}
+import akka.pattern.{ask, pipe}
 import akka.stream.scaladsl.Source
-import akka.stream.{ Materializer, OverflowStrategy }
+import akka.stream.{Materializer, OverflowStrategy}
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 
@@ -38,8 +38,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
 object Api {
-
-  final case class AddPostRequest(text: String)
 
   final val Name = "api"
 
@@ -83,7 +81,7 @@ object Api {
 
     def flows = {
       import FlowFacade._
-      implicit val timeout = flowFacadeTimeout
+      implicit val timeout: Timeout = flowFacadeTimeout
       pathPrefix("flows") {
         pathEnd {
           get {
@@ -180,6 +178,8 @@ object Api {
 
     assets ~ flows ~ flowsEvents ~ flowEvents
   }
+
+  final case class AddPostRequest(text: String)
 }
 
 final class Api(address: String,
@@ -200,17 +200,17 @@ final class Api(address: String,
                    port)
     .pipeTo(self)
 
-  override def receive = {
-    case Http.ServerBinding(address) => handleServerBinding(address)
-    case Status.Failure(cause)       => handleBindFailure(cause)
+  override def receive: PartialFunction[Any, Unit] = {
+    case Http.ServerBinding(_address) => handleServerBinding(_address)
+    case Status.Failure(cause) => handleBindFailure(cause)
   }
 
-  private def handleServerBinding(address: InetSocketAddress) = {
+  private def handleServerBinding(address: InetSocketAddress): Unit = {
     log.info("Listening on {}", address)
     context.become(Actor.emptyBehavior)
   }
 
-  private def handleBindFailure(cause: Throwable) = {
+  private def handleBindFailure(cause: Throwable): Unit = {
     log.error(cause, s"Can't bind to $address:$port!")
     context.stop(self)
   }

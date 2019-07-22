@@ -16,15 +16,7 @@
 
 package de.heikoseeberger.reactiveflows
 
-import akka.actor.{
-  Actor,
-  ActorLogging,
-  ActorRef,
-  ActorSystem,
-  Props,
-  SupervisorStrategy,
-  Terminated
-}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, SupervisorStrategy, Terminated}
 import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
 import akka.cluster.pubsub.DistributedPubSub
@@ -32,11 +24,19 @@ import akka.stream.ActorMaterializer
 
 object Main {
 
+  def main(args: Array[String]): Unit = {
+    val system = ActorSystem("reactive-flows")
+    Cluster(system).registerOnMemberUp {
+      val root = system.actorOf(Props(new Root), "root")
+      system.actorOf(Props(new Terminator(root)), "terminator")
+    }
+  }
+
   final class Root extends Actor with ActorLogging {
 
-    override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
+    override val supervisorStrategy: SupervisorStrategy = SupervisorStrategy.stoppingStrategy
 
-    private implicit val mat = ActorMaterializer()
+    private implicit val mat: ActorMaterializer = ActorMaterializer()
 
     private val mediator = DistributedPubSub(context.system).mediator
 
@@ -67,7 +67,7 @@ object Main {
     context.watch(api)
     log.info("{} up and running", context.system.name)
 
-    override def receive = {
+    override def receive: PartialFunction[Any, Unit] = {
       case Terminated(actor) =>
         log.error("Terminating the system because {} terminated!", actor.path)
         context.system.terminate()
@@ -79,18 +79,10 @@ object Main {
 
     context.watch(root)
 
-    override def receive = {
+    override def receive: PartialFunction[Any, Unit] = {
       case Terminated(`root`) =>
         log.error("Terminating the system because root terminated!")
         context.system.terminate()
-    }
-  }
-
-  def main(args: Array[String]): Unit = {
-    val system = ActorSystem("reactive-flows")
-    Cluster(system).registerOnMemberUp {
-      val root = system.actorOf(Props(new Root), "root")
-      system.actorOf(Props(new Terminator(root)), "terminator")
     }
   }
 }

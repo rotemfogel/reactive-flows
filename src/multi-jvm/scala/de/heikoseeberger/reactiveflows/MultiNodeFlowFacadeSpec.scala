@@ -16,12 +16,14 @@
 
 package de.heikoseeberger.reactiveflows
 
+import akka.actor.ActorRef
 import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
-import akka.remote.testkit.{ MultiNodeConfig, MultiNodeSpec }
-import akka.testkit.{ TestDuration, TestProbe }
+import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
+import akka.testkit.{TestDuration, TestProbe}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
 import scala.concurrent.duration.DurationInt
 
 object MultiNodeFlowFacadeSpecConfig extends MultiNodeConfig {
@@ -50,7 +52,8 @@ abstract class MultiNodeFlowFacadeSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll {
-  import Flow.{ AddPost => _, GetPosts => _, _ }
+
+  import Flow.{AddPost => _, GetPosts => _, _}
   import FlowFacade._
   import MultiNodeFlowFacadeSpecConfig._
 
@@ -71,7 +74,7 @@ abstract class MultiNodeFlowFacadeSpec
       )
       runOn(node1) {
         val sender             = TestProbe()
-        implicit val senderRef = sender.ref
+        implicit val senderRef: ActorRef = sender.ref
         flowFacade ! AddFlow("Akka")
         sender.expectMsg(FlowAdded(FlowDesc("akka", "Akka")))
         flowFacade ! FlowFacade.AddPost("akka", "Akka")
@@ -82,7 +85,7 @@ abstract class MultiNodeFlowFacadeSpec
       }
       runOn(node2) {
         val sender             = TestProbe()
-        implicit val senderRef = sender.ref
+        implicit val senderRef: ActorRef = sender.ref
         within(10.seconds.dilated) {
           sender.awaitAssert {
             flowFacade ! GetFlows
@@ -95,7 +98,7 @@ abstract class MultiNodeFlowFacadeSpec
 
       runOn(node2) {
         val sender             = TestProbe()
-        implicit val senderRef = sender.ref
+        implicit val senderRef: ActorRef = sender.ref
         flowFacade ! GetPosts("akka", 0, 99)
         sender.expectMsgPF(hint = """expected `Posts(Vector(Post(0, "Akka", _)))`""") {
           case Posts(Vector(Post(0, "Akka", _))) => ()
@@ -104,14 +107,14 @@ abstract class MultiNodeFlowFacadeSpec
     }
   }
 
-  override def initialParticipants = roles.size
+  override def initialParticipants: Int = roles.size
 
-  override protected def beforeAll() = {
+  override protected def beforeAll(): Unit = {
     super.beforeAll()
     multiNodeSpecBeforeAll()
   }
 
-  override protected def afterAll() = {
+  override protected def afterAll(): Unit = {
     multiNodeSpecAfterAll()
     super.afterAll()
   }

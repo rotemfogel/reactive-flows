@@ -17,27 +17,15 @@
 package de.heikoseeberger.reactiveflows
 package proto
 
-import akka.serialization.SerializerWithStringManifest
-import de.heikoseeberger.reactiveflows.proto.flowfacade.{
-  AddFlow => AddFlowPb,
-  AddPost => AddPostPb,
-  FlowAdded => FlowAddedPb,
-  FlowDesc => FlowDescPb,
-  FlowExists => FlowExistsPb,
-  FlowRemoved => FlowRemovedPb,
-  FlowUnknown => FlowUnknownPb,
-  Flows => FlowsPb,
-  GetFlows => GetFlowsPb,
-  GetPosts => GetPostsPb,
-  RemoveFlow => RemoveFlowPb
-}
 import java.io.NotSerializableException
+
+import akka.serialization.SerializerWithStringManifest
+import de.heikoseeberger.reactiveflows.proto.flowfacade.{AddFlow => AddFlowPb, AddPost => AddPostPb, FlowAdded => FlowAddedPb, FlowDesc => FlowDescPb, FlowExists => FlowExistsPb, FlowRemoved => FlowRemovedPb, FlowUnknown => FlowUnknownPb, Flows => FlowsPb, GetFlows => GetFlowsPb, GetPosts => GetPostsPb, RemoveFlow => RemoveFlowPb}
+
 import scala.collection.breakOut
 
 final class FlowFacadeSerializer extends SerializerWithStringManifest {
   import FlowFacade._
-
-  override val identifier = getClass.getName.hashCode // Good idea?
 
   private final val GetFlowsManifest    = "GetFlows"
   private final val FlowsManifest       = "Flows"
@@ -50,8 +38,9 @@ final class FlowFacadeSerializer extends SerializerWithStringManifest {
   private final val GetPostsManifest    = "GetPosts"
   private final val AddPostManifest     = "AddPost"
   private final val FlowDescManifest    = "FlowDesc"
+  override val identifier: Int = getClass.getName.hashCode // Good idea?
 
-  override def manifest(o: AnyRef) =
+  override def manifest(o: AnyRef): String =
     o match {
       case serializable: Serializable =>
         serializable match {
@@ -70,14 +59,14 @@ final class FlowFacadeSerializer extends SerializerWithStringManifest {
       case _ => throw new IllegalArgumentException(s"Unknown class: ${o.getClass}!")
     }
 
-  override def toBinary(o: AnyRef) = {
+  override def toBinary(o: AnyRef): Array[Byte] = {
     def flowDescPb(d: FlowDesc) = FlowDescPb(d.name, d.label)
     val pb =
       o match {
         case serializable: Serializable =>
           serializable match {
             case GetFlows                  => GetFlowsPb()
-            case Flows(flows)              => FlowsPb(flows.map(flowDescPb)(breakOut))
+            case Flows(_flows) => FlowsPb(_flows.map(flowDescPb)(breakOut))
             case AddFlow(label)            => AddFlowPb(label)
             case FlowAdded(desc)           => FlowAddedPb(Some(flowDescPb(desc)))
             case FlowExists(desc)          => FlowExistsPb(Some(flowDescPb(desc)))
@@ -93,7 +82,7 @@ final class FlowFacadeSerializer extends SerializerWithStringManifest {
     pb.toByteArray
   }
 
-  override def fromBinary(bytes: Array[Byte], manifest: String) = {
+  override def fromBinary(bytes: Array[Byte], manifest: String): Serializable = {
     def flows(pb: FlowsPb)             = Flows(pb.flows.map(flowDesc)(breakOut))
     def addFlow(pb: AddFlowPb)         = AddFlow(pb.label)
     def flowAdded(pb: FlowAddedPb)     = FlowAdded(flowDesc(pb.desc.get))

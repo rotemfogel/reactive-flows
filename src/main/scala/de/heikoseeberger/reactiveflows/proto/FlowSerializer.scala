@@ -17,34 +17,26 @@
 package de.heikoseeberger.reactiveflows
 package proto
 
-import akka.serialization.SerializerWithStringManifest
-import de.heikoseeberger.reactiveflows.proto.flow.Command.{ Command => CmdPb }
-import de.heikoseeberger.reactiveflows.proto.flow.{
-  AddPost => AddPostPb,
-  Command => CommandPb,
-  Envelope => EnvelopePb,
-  GetPosts => GetPostsPb,
-  Instant => InstantPb,
-  Post => PostPb,
-  PostAdded => PostAddedPb,
-  Posts => PostsPb
-}
 import java.io.NotSerializableException
 import java.time.Instant
+
+import akka.serialization.SerializerWithStringManifest
+import de.heikoseeberger.reactiveflows.proto.flow.Command.{Command => CmdPb}
+import de.heikoseeberger.reactiveflows.proto.flow.{AddPost => AddPostPb, Command => CommandPb, Envelope => EnvelopePb, GetPosts => GetPostsPb, Instant => InstantPb, Post => PostPb, PostAdded => PostAddedPb, Posts => PostsPb}
+
 import scala.collection.breakOut
 
 final class FlowSerializer extends SerializerWithStringManifest {
   import Flow._
-
-  override val identifier = getClass.getName.hashCode // Good idea?
 
   private final val GetPostsManifest        = "GetPosts"
   private final val PostsManifest           = "Posts"
   private final val AddPostManifest         = "AddPost"
   private final val PostAddedManifest       = "PostAdded"
   private final val CommandEnvelopeManifest = "CommandEnvelope"
+  override val identifier: Int = getClass.getName.hashCode // Good idea?
 
-  override def manifest(o: AnyRef) =
+  override def manifest(o: AnyRef): String =
     o match {
       case serializable: Serializable =>
         serializable match {
@@ -57,7 +49,7 @@ final class FlowSerializer extends SerializerWithStringManifest {
       case _ => throw new IllegalArgumentException(s"Unknown class: ${o.getClass}!")
     }
 
-  override def toBinary(o: AnyRef) = {
+  override def toBinary(o: AnyRef): Array[Byte] = {
     def envelope(name: String, command: Command) = {
       val cmdPb = {
         command match {
@@ -84,7 +76,7 @@ final class FlowSerializer extends SerializerWithStringManifest {
     pb.toByteArray
   }
 
-  override def fromBinary(bytes: Array[Byte], manifest: String) = {
+  override def fromBinary(bytes: Array[Byte], manifest: String): Serializable = {
     def getPosts(pb: GetPostsPb)   = GetPosts(pb.seqNo, pb.count)
     def posts(pb: PostsPb)         = Posts(pb.posts.map(post)(breakOut))
     def addPost(pb: AddPostPb)     = AddPost(pb.text)
@@ -92,9 +84,9 @@ final class FlowSerializer extends SerializerWithStringManifest {
     def envelope(pb: EnvelopePb) = {
       def command(cmdPb: CmdPb) =
         cmdPb match {
-          case CmdPb.GetPosts(pb) => getPosts(pb)
-          case CmdPb.AddPost(pb)  => addPost(pb)
-          case CmdPb.Empty        => throw new NotSerializableException("command must not be empty!")
+          case CmdPb.GetPosts(_pb) => getPosts(_pb)
+          case CmdPb.AddPost(_pb) => addPost(_pb)
+          case CmdPb.Empty => throw new NotSerializableException("command must not be empty!")
         }
       CommandEnvelope(pb.name, command(pb.command.get.command))
     }

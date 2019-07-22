@@ -38,14 +38,12 @@ export DATA_DIR="etcd-data"
 Run the latest version of etcd:
 
 ````
-REGISTRY=quay.io/coreos/etcd
-
 docker run \
   -d \
   -p 2379:2379 \
   -p 2380:2380 \
   --volume=${DATA_DIR}:/etcd-data \
-  --name etcd ${REGISTRY}:latest \
+  --name etcd quay.io/coreos/etcd:latest \
   /usr/local/bin/etcd \
   --data-dir=/etcd-data --name node1 \
   --initial-advertise-peer-urls http://${NODE1}:2380 --listen-peer-urls http://0.0.0.0:2380 \
@@ -55,7 +53,14 @@ docker run \
 
 #### Run scylladb
 ````
-docker run -d --name scylla -p 10000:10000 -p 7000:7000 -p 7001:7001 -p 9042:9042 -p 9160:9160 -p 9180:9180 scylladb/scylla:latest
+docker run -d --name scylla \
+    -p 10000:10000 \
+    -p 7000:7000 \
+    -p 7001:7001 \
+    -p 9042:9042 \
+    -p 9160:9160 \
+    -p 9180:9180 \
+    scylladb/scylla:latest
 ````
 
 ## REST API ##
