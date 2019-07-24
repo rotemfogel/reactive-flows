@@ -78,8 +78,7 @@ lazy val settings =
   gitSettings ++
   scalafmtSettings ++
   dockerSettings ++
-  multiJvmSettings ++
-  pbSettings
+    multiJvmSettings
 
 lazy val commonSettings =
   Seq(
@@ -132,12 +131,12 @@ lazy val multiJvmSettings =
     test.in(Test) := test.in(MultiJvm).dependsOn(test.in(Test)).value
   )
 
-lazy val pbSettings =
-  Seq(
-    PB.targets.in(Compile) := Seq(
-      scalapb.gen(flatPackage = true) -> sourceManaged.in(Compile).value
-    ),
-    libraryDependencies ++= Seq(
-      library.scalapbRuntime % "protobuf"
-    )
-  )
+//lazy val pbSettings =
+//  Seq(
+//    PB.targets.in(Compile) := Seq(
+//      scalapb.gen(flatPackage = true) -> sourceManaged.in(Compile).value
+//    ),
+//    libraryDependencies ++= Seq(
+//      library.scalapbRuntime % "protobuf"
+//    )
+//  )

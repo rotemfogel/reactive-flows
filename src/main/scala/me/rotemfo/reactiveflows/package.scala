@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger
+package me.rotemfo
 
 import java.time.{Duration => JavaDuration}
 

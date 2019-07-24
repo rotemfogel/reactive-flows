@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.reactiveflows
+package me.rotemfo.reactiveflows
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, SupervisorStrategy, Terminated}
 import akka.cluster.Cluster

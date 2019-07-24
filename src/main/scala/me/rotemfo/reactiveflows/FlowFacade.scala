@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.heikoseeberger.reactiveflows
+package me.rotemfo.reactiveflows
 
 import java.io.{Serializable => JavaSerializable}
 import java.net.URLEncoder
@@ -27,66 +27,6 @@ import akka.cluster.ddata.{Key, LWWMap, LWWMapKey, Replicator}
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 
 import scala.concurrent.duration.FiniteDuration
-
-object FlowFacade {
-
-  type CreateFlow = (ActorContext, String, ActorRef, FiniteDuration) => ActorRef
-  final val Name = "flow-facade"
-  val flows: Key[LWWMap[String, FlowDesc]] =
-    LWWMapKey("flows")
-
-  // == Message protocol – start ==
-  private val updateFlowData =
-    Replicator.Update(flows, LWWMap.empty[String, FlowDesc], Replicator.WriteLocal) _
-
-  def apply(mediator: ActorRef,
-            replicator: ActorRef,
-            flowShardRegion: ActorRef,
-            createFlow: CreateFlow = createFlow): Props =
-    Props(
-      new FlowFacade(mediator, replicator, flowShardRegion, createFlow)
-    )
-
-  private def createFlow(context: ActorContext,
-                         name: String,
-                         mediator: ActorRef,
-                         flowPassivationTimeout: FiniteDuration) =
-    context.actorOf(Flow(mediator, flowPassivationTimeout), name)
-
-  private def labelToName(label: String) = URLEncoder.encode(label.toLowerCase, UTF_8.name)
-
-  sealed trait Serializable extends JavaSerializable
-
-  sealed trait Event
-
-  final case class Flows(flows: Set[FlowDesc]) extends Serializable
-
-  final case class AddFlow(label: String) extends Serializable
-
-  final case class FlowAdded(desc: FlowDesc) extends Serializable with Event
-
-  // Response by Flow
-
-  final case class FlowExists(desc: FlowDesc) extends Serializable
-
-  // Response by Flow
-
-  final case class RemoveFlow(name: String) extends Serializable
-
-  // == Message protocol – end ==
-
-  final case class FlowRemoved(name: String) extends Serializable with Event
-
-  final case class FlowUnknown(name: String) extends Serializable
-
-  final case class GetPosts(name: String, from: Long, count: Int) extends Serializable
-
-  final case class AddPost(name: String, text: String) extends Serializable
-
-  final case class FlowDesc(name: String, label: String) extends Serializable // needs to be Serializable because of ddata
-
-  final case object GetFlows extends Serializable
-}
 
 final class FlowFacade(mediator: ActorRef,
                        replicator: ActorRef,
@@ -161,4 +101,65 @@ final class FlowFacade(mediator: ActorRef,
     forExistingFlow(name) {
       forwardToFlow(name, Flow.AddPost(text))
     }
+}
+
+object FlowFacade {
+
+  type CreateFlow = (ActorContext, String, ActorRef, FiniteDuration) => ActorRef
+  final val Name = "flow-facade"
+  val flows: Key[LWWMap[String, FlowDesc]] =
+    LWWMapKey("flows")
+
+  // == Message protocol – start ==
+  private val updateFlowData =
+    Replicator.Update(flows, LWWMap.empty[String, FlowDesc], Replicator.WriteLocal) _
+
+  def apply(mediator: ActorRef,
+            replicator: ActorRef,
+            flowShardRegion: ActorRef,
+            createFlow: CreateFlow = createFlow): Props =
+    Props(
+      new FlowFacade(mediator, replicator, flowShardRegion, createFlow)
+    )
+
+  private def createFlow(context: ActorContext,
+                         name: String,
+                         mediator: ActorRef,
+                         flowPassivationTimeout: FiniteDuration) =
+    context.actorOf(Flow(mediator, flowPassivationTimeout), name)
+
+  private def labelToName(label: String) = URLEncoder.encode(label.toLowerCase, UTF_8.name)
+
+  sealed trait Serializable extends JavaSerializable
+
+  sealed trait Event
+
+  final case class Flows(flows: Set[FlowDesc]) extends Serializable
+
+  final case class AddFlow(label: String) extends Serializable
+
+  final case class FlowAdded(desc: FlowDesc) extends Serializable with Event
+
+  // Response by Flow
+
+  final case class FlowExists(desc: FlowDesc) extends Serializable
+
+  // Response by Flow
+
+  final case class RemoveFlow(name: String) extends Serializable
+
+  // == Message protocol – end ==
+
+  final case class FlowRemoved(name: String) extends Serializable with Event
+
+  final case class FlowUnknown(name: String) extends Serializable
+
+  final case class GetPosts(name: String, from: Long, count: Int) extends Serializable
+
+  final case class AddPost(name: String, text: String) extends Serializable
+
+  final case class FlowDesc(name: String, label: String) extends Serializable // needs to be Serializable because of ddata
+
+  final case object GetFlows extends Serializable
+
 }
